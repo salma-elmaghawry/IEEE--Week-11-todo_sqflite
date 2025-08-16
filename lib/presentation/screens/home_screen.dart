@@ -1,49 +1,62 @@
-// screens/home_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:todo/data/models/todo_model.dart';
 import 'package:todo/logic/cubit/todo_cubit.dart';
-import 'package:todo/presentation/screens/add_todo_screen.dart';
-
+import 'package:todo/presentation/screens/add_todo_dialog.dart';
 
 class HomeScreen extends StatelessWidget {
-  const HomeScreen({Key? key}) : super(key: key);
+  HomeScreen({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Todo App'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => AddTodoScreen(),
-                ),
-              );
-            },
-          ),
-        ],
-      ),
       body: BlocBuilder<TodoCubit, TodoState>(
         builder: (context, state) {
+          // Debug the current state
+          print('Current TodoState: $state');
+
           if (state is TodoLoading) {
             return const Center(child: CircularProgressIndicator());
           } else if (state is TodoError) {
             return Center(child: Text(state.message));
           } else if (state is TodoLoaded) {
-            final incompleteTodos = state.todos.where((todo) => !todo.isCompleted).toList();
-            final completeTodos = state.todos.where((todo) => todo.isCompleted).toList();
+            final incompleteTodos =
+                state.todos.where((todo) => !todo.isCompleted).toList();
+            final completeTodos =
+                state.todos.where((todo) => todo.isCompleted).toList();
 
             return SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildTodoSection(context, 'Incomplete', incompleteTodos),
-                  _buildTodoSection(context, 'Completed', completeTodos),
+                  const SizedBox(height: 30),
+                  // Header with date
+                  Text(
+                    _formatDate(DateTime.now()),
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  // Summary count
+                  Text(
+                    "${incompleteTodos.length} Incomplete, ${completeTodos.length} completed",
+                    style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Incomplete section
+                  _buildSectionHeader('Incomplete'),
+                  const SizedBox(height: 8),
+                  _buildTodoList(context, incompleteTodos),
+                  const SizedBox(height: 24),
+
+                  // Completed section
+                  _buildSectionHeader('Completed'),
+                  const SizedBox(height: 8),
+                  _buildTodoList(context, completeTodos, isCompleted: true),
                 ],
               ),
             );
@@ -51,26 +64,41 @@ class HomeScreen extends StatelessWidget {
           return const Center(child: Text('No todos yet'));
         },
       ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showAddTodoDialog(context),
+        child: const Icon(Icons.add),
+      ),
     );
   }
 
-  Widget _buildTodoSection(BuildContext context, String title, List<Todo> todos) {
+  void _showAddTodoDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        // Use the existing TodoCubit from the parent instead of creating a new one
+        return AddTodoDialog();
+      },
+    ).then((_) {
+      // Refresh todos after dialog is closed
+      context.read<TodoCubit>().loadTodos();
+    });
+  }
+
+  Widget _buildSectionHeader(String title) {
+    return Text(
+      title,
+      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+    );
+  }
+
+  Widget _buildTodoList(
+    BuildContext context,
+    List<Todo> todos, {
+    bool isCompleted = false,
+  }) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Text(
-            title,
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-          ),
-        ),
-        ListView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: todos.length,
-          itemBuilder: (context, index) {
-            final todo = todos[index];
+      children:
+          todos.map((todo) {
             return Dismissible(
               key: Key(todo.id.toString()),
               background: Container(color: Colors.red),
@@ -81,17 +109,27 @@ class HomeScreen extends StatelessWidget {
                 );
               },
               child: Card(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                margin: const EdgeInsets.only(bottom: 8),
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  side: BorderSide(color: Colors.grey[300]!),
+                ),
                 child: ListTile(
-                  title: Text(todo.title),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(todo.category),
-                      Text(
-                        '${todo.date.day}/${todo.date.month}/${todo.date.year}',
-                      ),
-                    ],
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  title: Text(
+                    todo.title,
+                    style: TextStyle(
+                      decoration:
+                          isCompleted ? TextDecoration.lineThrough : null,
+                    ),
+                  ),
+                  subtitle: Text(
+                    todo.category,
+                    style: TextStyle(color: Colors.grey[600]),
                   ),
                   trailing: Checkbox(
                     value: todo.isCompleted,
@@ -102,9 +140,25 @@ class HomeScreen extends StatelessWidget {
                 ),
               ),
             );
-          },
-        ),
-      ],
+          }).toList(),
     );
+  }
+
+  String _formatDate(DateTime date) {
+    final months = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+    return '${months[date.month - 1]} ${date.day}, ${date.year}';
   }
 }

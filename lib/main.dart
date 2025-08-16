@@ -7,20 +7,20 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   final dbHelper = DatabaseHelper.instance;
-  runApp( MyApp(dbHelper: dbHelper));
+  runApp(MyApp(dbHelper: dbHelper));
 }
 
 class MyApp extends StatelessWidget {
   final DatabaseHelper dbHelper;
- const MyApp({Key? key, required this.dbHelper}) : super(key: key);
+  const MyApp({Key? key, required this.dbHelper}) : super(key: key);
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: ThemeData(scaffoldBackgroundColor: Colors.white),
       home: BlocProvider(
-        create: (context) => TodoCubit(dbHelper),
-        child:  HomeScreen(),
+        create: (context) => TodoCubit(dbHelper)..loadTodos(),
+        child: HomeScreen(),
       ),
     );
   }
